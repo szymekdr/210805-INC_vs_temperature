@@ -418,14 +418,17 @@ Except for winter precipitation, there are clear trends of rising temperatures (
 Prepare data:
 
 ```{r}
-
 demography <- data %>%
   group_by(AREA, YEAR) %>%
-  summarise(fl_mean = mean(FLEDGE, na.rm = T), rec_mean = mean(NEWRECRUIT, na.rm = T)) %>%
+  summarise(fl_mean = mean(FLEDGE, na.rm = T),
+            rec_mean = mean(NEWRECRUIT, na.rm = T),
+            cs_mean = mean(CS, na.rm = T)) %>%
   filter((AREA == "OJ" | AREA == "FP" | AREA == "FA") & !is.nan(fl_mean) & !is.nan(rec_mean)) %>%
   # print(n = 50) %>%
   left_join(cf_nbox_occup, by = c("AREA" = "Plot", "YEAR" = "year")) %>%
-  mutate(fl_mean_n = lag(fl_mean), rec_mean_n = lag(rec_mean))
+  mutate(fl_mean_n = lag(fl_mean),
+         rec_mean_n = lag(rec_mean),
+         cs_mean_n = lag(cs_mean))
 
 ggplot(data = demography, mapping = aes(y = fl_mean, x = YEAR, col = AREA)) +
   geom_point() +
@@ -433,6 +436,11 @@ ggplot(data = demography, mapping = aes(y = fl_mean, x = YEAR, col = AREA)) +
   theme_classic()
 
 ggplot(data = demography, mapping = aes(y = rec_mean, x = YEAR, col = AREA)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 3)) +
+  theme_classic()
+
+ggplot(data = demography, mapping = aes(y = cs_mean, x = YEAR, col = AREA)) +
   geom_point() +
   geom_smooth(method = 'lm', formula = y~poly(x, 3)) +
   theme_classic()
@@ -476,6 +484,8 @@ ggplot(data = demography, mapping = aes(x = rec_mean_n, y = no_pairs, col = AREA
   geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
   theme_classic()
 
+
+
 ggplot(data = demography, mapping = aes(x = fl_mean_n, y = fr_occup, col = AREA)) +
   geom_point() +
   geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
@@ -485,6 +495,12 @@ ggplot(data = demography, mapping = aes(x = rec_mean_n, y = fr_occup, col = AREA
   geom_point() +
   geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
   theme_classic()
+
+ggplot(data = demography, mapping = aes(x = cs_mean_n, y = fr_occup, col = AREA)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+  theme_classic()
+
 ```
 
 Previous year fledging success (and to a large degree recruitment) predicts next-years population size.
@@ -500,7 +516,6 @@ model14 <- glmer(FLEDGE ~ scale(YEAR) + (1|FRING) + (1|YEAR2),
                  data = data_analysis, family = "poisson")
 summary(model14)
 plot(model14)
-hist(resid(model14, type = "deviance"))
 
 data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "MRING", "YEAR", "NEWRECRUIT", "sum_prcp_jan_march")]
 data_analysis <- na.omit(data_analysis)
@@ -513,3 +528,34 @@ plot(model15)
 ```
 
 There are clear negative trends in local recruitment and fledging success across years (decline with time).
+
+## Checking for temporal trend in clutch size
+
+Surprisingly clutch size seems to increase with years
+```{r}
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "MRING", "YEAR", "CS", "sum_prcp_jan_march")]
+data_analysis <- na.omit(data_analysis)
+nrow(data_analysis)
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+model16 <- glmer(CS ~ scale(YEAR) + (1|YEAR2) + (1|FRING),
+                 data = data_analysis, family = "poisson")
+summary(model16)
+plot(model16)
+```
+
+Clutch size predicts to certain extent population size in the following year:
+
+```{r}
+model13_1 <- glm(no_pairs ~ AREA * cs_mean_n, data = demography, family = "poisson")
+summary(model13_1)
+
+ggplot(data = demography, mapping = aes(x = cs_mean_n, y = no_pairs, col = AREA)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+  theme_classic()
+
+ggplot(data = demography, mapping = aes(x = cs_mean_n, y = fr_occup, col = AREA)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+  theme_classic()
+```
