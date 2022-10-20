@@ -1,0 +1,78 @@
+---
+title: "Incubation vs weather"
+author: "Szymon Drobniak"
+date: `r Sys.Date()`
+output: rmdformats::robobook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+Load relevant libraries.
+
+```{r message = F}
+## Szymek Drobniak
+## 17/12/2019
+## data processing for climatic analysis of BT BSM data
+
+library(ggplot2)
+```
+
+## Generate weather data
+
+Load and check individual data.
+
+```{r}
+bird_data <- read.table(here::here("data","210805_maindata.csv"), sep = ";",
+                        head = T)
+summary(bird_data)
+tail(bird_data)
+
+# remove NA's in INC data
+bird_data <- bird_data[!is.na(bird_data$Inc.start), ]
+```
+
+
+Load weather data (temperature and rain) and process it to calculate relevant means.
+
+```{r}
+temp <- read.table(here::here("data", "210805_temp.csv"), sep = ";", head = T)
+rain <- read.table(here::here("data", "210805_rain.csv"), sep = ";", head = T)
+
+bird_data$TEMP_INC <- NA
+bird_data$PRCP_INC <- NA
+
+codestart_prev <- 0
+
+for (i in 1:nrow(bird_data)) {
+  
+  # define the start timestamp
+  codestart <- paste(bird_data[i, "YEAR"], bird_data[i, "Inc.start"], sep = "")
+  # if (codestart_prev == codestart)
+  
+  t_index <- which(temp[, "CODE"] == codestart)
+  r_index <- which(rain[, "CODE"] == codestart)
+  
+  t_data <- temp[c(t_index:(t_index + 14)),]
+  r_data <- rain[c(r_index:(r_index + 14)),]
+  
+  mean_temp <- mean(t_data[, "temp"], na.rm = T)
+  sum_prcp <- sum(r_data[, "rain"], na.rm = T)
+  
+  bird_data[i, "TEMP_BROOD"] <- mean_temp
+  bird_data[i, "PRCP_BROOD"] <- sum_prcp
+  
+  codestart_prev <- codestart
+  
+  cat("Row "); cat(i); cat(" done\n")
+  
+}
+
+write.table(bird_data, row.names = F,
+            file = here::here("data", "postprocess", "bird_data_weather.csv"),
+            sep = ";")
+```
+
