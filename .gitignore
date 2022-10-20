@@ -6,3 +6,4 @@
 *.html
 .Rdata
 .httr-oauth
+*cache/

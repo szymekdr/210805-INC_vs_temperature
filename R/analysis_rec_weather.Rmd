@@ -104,7 +104,7 @@ hist(resid(model3, type = "deviance"))
 
 Visualise both models. First for fledging success:
 
-```{r}
+```{r fig.height=8}
 data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "MRING", "YEAR", "FLEDGE")]
 data_analysis <- na.omit(data_analysis)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
@@ -134,14 +134,14 @@ z.pred <- matrix(predict(fit, newdata = xy, type = "response", re.form = NA),
 fitpoints <- predict(fit, type = "response", re.form = NA)
 
 # scatter plot with regression plane
-scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray20", theta = 30, phi = 25, bty="u",ticktype="detailed",
+scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray15", theta = 30, phi = 25, bty="u",ticktype="detailed",
           col.panel ="gray90", col.grid = "snow",
           expand = 0.8, d = 1,
           xlab = "Temperature", ylab = "Precipitation", zlab = "No. of fledglings",  
           surf = list(x = x.pred, y = y.pred, z = z.pred,  
                       facets = TRUE, col=ramp.col (col = c("cyan","orchid","yellow","orange"), n = 100, alpha=0.7),
                       fit = fitpoints,
-                      border="black"), alpha = 0.2, zlim = c(0,8))
+                      border="black"), alpha = 0.10, zlim = c(0,8))
 
 
 data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "MRING", "YEAR", "NEWRECRUIT")]
