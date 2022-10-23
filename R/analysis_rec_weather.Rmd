@@ -32,10 +32,19 @@ library(plot3D)
 * Autocorrelated time-series models for analyses with year variable
 * Try zero-inflation in all models
 
+## Custom functions
+
+```{r}
+counter <- function(x, maxzeroes = 4) {
+  if(floor(log10(x)) > maxzeroes) stop("Not enough zeroes in maxzeroes")
+  
+  return(paste0(paste(rep(0, maxzeroes - floor(log10(x))), collapse = ""), x))
+}
+```
 
 ## Load data
 
-```{r}
+```{r data_load}
 data <- read.table(here('data', 'CFlongAA.csv'),
                    sep = ";", head = T, stringsAsFactors = T)
 # summary(data)
@@ -119,7 +128,7 @@ xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analys
 # Compute the linear regression 
 #fit <- glm(z ~ x * y, data = xyz)
 fit <- glmer(z ~ x * y + (1|FRING) + (1|YEAR),
-                data = xyz, family = "poisson")
+             data = xyz, family = "poisson")
 
 # create a grid from the x and y values (min to max) and predict values for every point
 # this will become the regression plane
@@ -134,14 +143,14 @@ z.pred <- matrix(predict(fit, newdata = xy, type = "response", re.form = NA),
 fitpoints <- predict(fit, type = "response", re.form = NA)
 
 # scatter plot with regression plane
-scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray15", theta = 30, phi = 25, bty="u",ticktype="detailed",
+scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray15", theta = 30, phi = 30, bty="u",ticktype="detailed",
           col.panel ="gray90", col.grid = "snow",
           expand = 0.8, d = 1,
           xlab = "Temperature", ylab = "Precipitation", zlab = "No. of fledglings",  
           surf = list(x = x.pred, y = y.pred, z = z.pred,  
                       facets = TRUE, col=ramp.col (col = c("cyan","orchid","yellow","orange"), n = 100, alpha=0.7),
                       fit = fitpoints,
-                      border="black"), alpha = 0.10, zlim = c(0,8))
+                      border="black"), alpha = 0.2, zlim = c(0,8))
 
 
 data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "MRING", "YEAR", "NEWRECRUIT")]
@@ -158,7 +167,7 @@ xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analys
 # Compute the linear regression 
 # fit <- glm(z ~ x * y, data = xyz)
 fit <- glmer(z ~ x * y + (1|FRING) + (1|YEAR),
-                data = xyz, family = "poisson")
+             data = xyz, family = "poisson")
 
 # create a grid from the x and y values (min to max) and predict values for every point
 # this will become the regression plane
@@ -182,6 +191,75 @@ scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray20", theta = 
                       fit = fitpoints,
                       border="black"), alpha = 0.2, zlim = c(0,4))
 ```
+
+Animated plot to make the pattern more apparent:
+
+```{r animated_plot, eval = F}
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "MRING", "YEAR", "FLEDGE")]
+data_analysis <- na.omit(data_analysis)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+
+# set the x, y, and z variables
+x <- data_analysis$TEMP_BROOD
+y <- data_analysis$PRCP_BROOD
+z <- data_analysis$FLEDGE
+xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analysis$YEAR)
+
+# Compute the linear regression 
+#fit <- glm(z ~ x * y, data = xyz)
+fit <- glmer(z ~ x * y + (1|FRING) + (1|YEAR),
+             data = xyz, family = "poisson")
+
+# create a grid from the x and y values (min to max) and predict values for every point
+# this will become the regression plane
+grid.lines = 40
+x.pred <- seq(min(x), max(x), length.out = grid.lines)
+y.pred <- seq(min(y), max(y), length.out = grid.lines)
+xy <- expand.grid( x = x.pred, y = y.pred)
+z.pred <- matrix(predict(fit, newdata = xy, type = "response", re.form = NA), 
+                 nrow = grid.lines, ncol = grid.lines)
+
+# create the fitted points for droplines to the surface
+fitpoints <- predict(fit, type = "response", re.form = NA)
+
+for (i in 1:180) {
+  # scatter plot with regression plane
+  png(filename = paste0("./animated/", "file_", counter(i), ".png"))
+  scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray15",
+            theta = i, phi = 30, bty="u",ticktype="detailed",
+            col.panel ="gray90", col.grid = "snow",
+            expand = 0.8, d = 1,scale = T,
+            xlab = "Temperature", ylab = "Precipitation", zlab = "No. of fledglings",  
+            surf = list(x = x.pred, y = y.pred, z = z.pred,  
+                        facets = TRUE, col=ramp.col (col = c("cyan","orchid","yellow","orange"), n = 100, alpha=0.7),
+                        fit = fitpoints,
+                        border="black"), alpha = 0.2, zlim = c(0,8))
+  dev.off()
+  cat("Plot "); cat(i); cat(" degrees done\n")
+}
+
+library(magick)
+
+imgs <- list.files("./animated", full.names = TRUE)
+img_list <- lapply(imgs, image_read)
+
+## join the images together
+img_joined <- image_join(img_list)
+
+## animate at 2 frames per second
+img_animated <- image_animate(img_joined, fps = 24)
+
+## view animated image
+img_animated
+
+## save to disk
+image_write(image = img_animated,
+            path = "./R/plot.gif")
+```
+
+![](plot.gif)
+
 
 ## Transformed models
 
