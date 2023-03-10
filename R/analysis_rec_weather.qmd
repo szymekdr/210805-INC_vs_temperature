@@ -643,7 +643,8 @@ demography <- data %>%
   summarise(fl_mean = mean(FLEDGE, na.rm = T),
             rec_mean = mean(NEWRECRUIT, na.rm = T),
             cs_mean = mean(CS, na.rm = T)) %>%
-  filter((AREA == "OJ" | AREA == "FP" | AREA == "FA") & !is.nan(fl_mean) & !is.nan(rec_mean)) %>%
+  filter((AREA == "OJ" | AREA == "FP" | AREA == "FA")
+            & !is.nan(fl_mean) & !is.nan(rec_mean)) %>%
   # print(n = 50) %>%
   left_join(cf_nbox_occup, by = c("AREA" = "Plot", "YEAR" = "year")) %>%
   mutate(fl_mean_n = lag(fl_mean),
@@ -669,7 +670,6 @@ ggplot(data = demography, mapping = aes(y = cs_mean, x = YEAR, col = AREA)) +
 ```
 
 Clutch size is increasing! interesting but I would not put too much emphasis here. Maybe some compensation process going on?
-
 
 Linear modelling of the link between population size and reproductive output:
 
@@ -824,10 +824,197 @@ ggplot(data = demography, mapping = aes(x = cs_mean_n, y = fr_occup, col = AREA)
 ```
 
 
-## Extended population analyses with all nestboxes
+## Full Gotland data: extended population analyses with all nestboxes
 
 Load relevant datasets and reshape the nest box data for plots to the required format.
 
 ```{r}
+#| output: false
+#| warning: false
+#| code-overflow: wrap
+#| code-fold: true
+#| eval: true
 
+cf_nbox_allplots <- read.table(here("data", "CFnbplot_short.csv"),
+                              sep = ";", head = TRUE,
+                              stringsAsFactors = TRUE)
+
+cf_nbox_allplots <- cf_nbox_allplots %>%
+    filter(Plot != "SUMA") %>%
+    pivot_longer(starts_with("X"), names_to = "year",
+                names_prefix = "X", values_to = "no_pairs")
+
+cf_nbox_allplots$year <- as.numeric(cf_nbox_allplots$year)
+
+cf_totals <- read.table(here("data", "TOTALnbplot_short.csv"),
+                        sep = ";", head = TRUE,
+                              stringsAsFactors = TRUE)
+```
+
+```{r}
+#| output: false
+#| warning: false
+#| code-overflow: wrap
+#| code-fold: true
+#| eval: true
+
+
+demography <- data %>%
+  group_by(AREA, YEAR) %>%
+  summarise(fl_mean = mean(FLEDGE, na.rm = T),
+            rec_mean = mean(NEWRECRUIT, na.rm = T),
+            cs_mean = mean(CS, na.rm = T)) %>%
+  filter((AREA == "OJ" | AREA == "FP" | AREA == "FA" | AREA == "FO" |
+            AREA == "FK" | AREA == "AN" | AREA == "BK" | AREA == "KT" |
+            AREA == "OL" | AREA == "RM" | AREA == "GR" | AREA == "BJ" |
+            AREA == "RO" | AREA == "RS" | AREA == "RN")
+            & !is.nan(fl_mean) & !is.nan(rec_mean)) %>%
+  # print(n = 50) %>%
+  left_join(cf_nbox_allplots, by = c("AREA" = "Plot", "YEAR" = "year")) %>%
+  mutate(fl_mean_n = lag(fl_mean),
+         rec_mean_n = lag(rec_mean),
+         cs_mean_n = lag(cs_mean))
+
+full_plots <- c("FA", "FP", "FO", "FK", "GR", "OJ", "AN", "RO")
+ggplot(data = demography, mapping = aes(y = fl_mean, x = YEAR)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = demography, mapping = aes(y = rec_mean, x = YEAR)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = demography, mapping = aes(y = cs_mean, x = YEAR)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  theme_classic()
+```
+
+```{r}
+#| output: false
+#| warning: false
+#| code-overflow: wrap
+#| code-fold: true
+#| eval: true
+
+
+model14 <- glm(no_pairs ~ -1 + scale(YEAR, scale = FALSE) * AREA, data = demography, family = "poisson")
+summary(model14)
+
+ggplot(data = cf_nbox_allplots, mapping = aes(y = no_pairs, x = year)) +
+  geom_point(aes(col = Plot)) +
+  geom_smooth(aes(col = Plot), method = 'lm', formula = y~poly(x, 2), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y~poly(x,2), se = TRUE, col = "black", lwd = 2) +
+  theme_classic()
+
+ggplot(data = cf_nbox_allplots %>%
+              filter(Plot %in% full_plots & year >= 1986) %>%
+              group_by(year) %>%
+              summarise(no_pairs = sum(no_pairs, na.rm = TRUE)),
+      mapping = aes(y = no_pairs, x = year)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x,2), se = TRUE, col = "black", lwd = 2) +
+  theme_classic()
+
+
+ggplot() +
+  scale_fill_manual(limits = c("OJ", "FP", "FO", "FK", "GR", "FA", "RO", "AN"),
+                      values = ramp.col(c("violet", "darkred", "orange", "green"), 8)) +
+  geom_bar(data = cf_nbox_allplots %>%
+              filter(Plot %in% full_plots & year >= 1986) %>%
+              mutate(Plot = fct_relevel(Plot, rev(c("OJ", "FP", "FO", "FK", "GR", "FA", "RO", "AN")))),
+      mapping = aes(y = no_pairs, x = year, fill = Plot),
+      stat = "identity") +
+  geom_smooth(data = cf_nbox_allplots %>%
+              filter(Plot %in% full_plots & year >= 1986) %>%
+              group_by(year) %>%
+              summarise(no_pairs = sum(no_pairs, na.rm = TRUE)),
+              mapping = aes(y = no_pairs, x = year),
+              method = 'lm', formula = y~poly(x,2), se = TRUE, col = "black", lwd = 2) +
+  theme_classic()
+
+ggplot(data = cf_nbox_allplots %>%
+              left_join(cf_totals) %>%
+              mutate(fr_occup = no_pairs/NOBOX),
+      mapping = aes(y = fr_occup, x = year)) +
+  geom_point(aes(col = Plot)) +
+  geom_smooth(aes(col = Plot), method = 'lm', formula = y~poly(x, 1), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y~poly(x,2), se = TRUE, col = "black", lwd = 2) +
+  theme_classic()
+```
+
+```{r}
+#| output: false
+#| warning: false
+#| code-overflow: wrap
+#| code-fold: true
+#| eval: true
+
+
+model15 <- glm(no_pairs ~ AREA * fl_mean_n, data = demography, family = "poisson")
+summary(model15)
+
+model16 <- glm(no_pairs ~ AREA * rec_mean_n, data = demography, family = "poisson")
+summary(model16)
+
+ggplot(data = demography, mapping = aes(x = fl_mean_n, y = no_pairs, col = AREA)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+  theme_classic()
+
+ggplot(data = demography, mapping = aes(x = rec_mean_n, y = no_pairs, col = AREA)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+  theme_classic()
+
+
+
+# ggplot(data = demography, mapping = aes(x = fl_mean_n, y = fr_occup, col = AREA)) +
+#   geom_point() +
+#   geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+#   theme_classic()
+
+# ggplot(data = demography, mapping = aes(x = rec_mean_n, y = fr_occup, col = AREA)) +
+#   geom_point() +
+#   geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+#   theme_classic()
+
+# ggplot(data = demography, mapping = aes(x = cs_mean_n, y = fr_occup, col = AREA)) +
+#   geom_point() +
+#   geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+#   theme_classic()
+
+```
+
+Previous year fledging success (and to a large degree recruitment) predicts next-years population size.
+
+## Full Gotland data: Checking for temporal trend in clutch size
+
+Clutch size predicts to certain extent population size in the following year:
+
+```{r}
+#| output: false
+#| warning: false
+#| code-overflow: wrap
+#| code-fold: true
+#| eval: true
+
+
+model17 <- glm(no_pairs ~ AREA * cs_mean_n, data = demography, family = "poisson")
+summary(model17)
+
+ggplot(data = demography, mapping = aes(x = cs_mean_n, y = no_pairs, col = AREA)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+  theme_classic()
+
+# ggplot(data = demography, mapping = aes(x = cs_mean_n, y = fr_occup, col = AREA)) +
+#   geom_point() +
+#   geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+#   theme_classic()
 ```
