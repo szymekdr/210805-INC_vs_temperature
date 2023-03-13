@@ -112,7 +112,6 @@ summary(model1)
 ## GLM models
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -147,11 +146,12 @@ hist(resid(model3, type = "deviance"))
 Visualise both models. First for fledging success:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
-#| label: 3d_plot_fledge
+#| label: fig-3d_plot_fledge
+#| fig-cap: "Fledging vs. weather"
+#| fig-height: 8
 
 
 data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE")]
@@ -193,13 +193,15 @@ scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray15", theta = 
                       border="black"), alpha = 0.2, zlim = c(0,8))
 ```
 
+And for recruitment:
+
 ```{r}
-```{r fig.height=8}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
-#| label: 3d_plot_recr
+#| label: fig-3d_plot_recr
+#| fig-cap: "Recruitment vs. weather"
+#| fig-height: 8
 
 data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT")]
 data_analysis <- na.omit(data_analysis)
@@ -318,8 +320,6 @@ image_write(image = img_animated,
 ## Transformed models {#sec-transformed}
 
 ```{r}
-
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -354,7 +354,6 @@ hist(resid(model5))
 ## Transformed models + quadratic effects {#sec-quadratic}
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -389,8 +388,6 @@ hist(resid(model7))
 ## GLM models + simple zero-inflation using REML {#sec-zi}
 
 ```{r}
-
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -429,7 +426,6 @@ hist(residuals(model3.1))
 ## Correlation between weather variables
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -448,7 +444,6 @@ cor.test(data$TEMP_BROOD, data$PRCP_BROOD)
 PCA of both variables.
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -463,7 +458,6 @@ summary(mypca)
 VIF calculation for both GLM models.
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -479,7 +473,6 @@ Variance inflation factors do not indicate towards any severe collinearity, the 
 # Merging with winter precipitation data + analysis {#sec-winter}
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -505,7 +498,6 @@ ggplot(data = data, mapping = aes(y = PRCP_BROOD, x = sum_prcp_jan_march)) +
 Model for fledging success:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -528,7 +520,6 @@ hist(resid(model7, type = "deviance"))
 Model for recruitment:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -553,7 +544,6 @@ Overall, winter precipitation is a weak predictor of summer rain, poor predictor
 Models with interaction of winter precipitation with temperature:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -591,7 +581,6 @@ The patterns are similar as with regular precipitation, which only emphasizes th
 # Temporal variation in weather parameters
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -627,7 +616,6 @@ Except for winter precipitation, there are clear trends of rising temperatures (
 Prepare data:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -669,7 +657,6 @@ Clutch size is increasing! interesting but I would not put too much emphasis her
 Linear modelling of the link between population size and reproductive output:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -694,7 +681,6 @@ Both typical habitats have significantly negative demographic trends.
 Checking if reproductive success predicts population dynamics:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -740,7 +726,6 @@ Previous year fledging success (and to a large degree recruitment) predicts next
 Trends in average success:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -772,7 +757,6 @@ There are clear negative trends in local recruitment and fledging (the latter cl
 Surprisingly clutch size seems to increase with years (as also seen above).
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -793,7 +777,6 @@ plot(model16)
 Clutch size predicts to certain extent population size in the following year:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -820,7 +803,6 @@ ggplot(data = demography, mapping = aes(x = cs_mean_n, y = fr_occup, col = AREA)
 Load relevant datasets and reshape the nest box data for plots to the required format.
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -842,7 +824,6 @@ cf_totals <- read.table(here("data", "TOTALnbplot_short.csv"),
 ```
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -887,7 +868,6 @@ ggplot(data = demography, mapping = aes(y = cs_mean, x = YEAR)) +
 ```
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -947,7 +927,6 @@ ggplot(data = cf_nbox_allplots %>%
 ```
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -997,7 +976,6 @@ Previous year fledging success (and to a large degree recruitment) predicts next
 Not used in final results.
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -1128,7 +1106,7 @@ summary(model2)
 summary(model3)
 ```
 
-Observed patterns are clearly associated with increasing temperatures and decreasing rainfall (especially visible in numbers of fledlings; @3d_plot_fledge & @3d_plot_recr). Results are robust to using (instead of GLM) log-transformed counts (see @sec-transformed), adding quadratic effects to linear trends (see @sec-quadratic) and including zero-inflation in Poisson models (see @sec-zi).
+Observed patterns are clearly associated with increasing temperatures and decreasing rainfall (especially visible in numbers of fledlings; @fig-3d_plot_fledge & @fig-3d_plot_recr). Results are robust to using (instead of GLM) log-transformed counts (see @sec-transformed), adding quadratic effects to linear trends (see @sec-quadratic) and including zero-inflation in Poisson models (see @sec-zi).
 
 ## Weather is changing towards warmer and drier conditions
 
@@ -1169,6 +1147,7 @@ summary(lm(mean_p ~ YEAR,
 ggplot(data = data %>% group_by(YEAR) %>% summarise(mean_p = mean(PRCP_BROOD)),
        mapping = aes(y = mean_p, x = YEAR)) +
   geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
   labs(x = "Year", y = "Breeding time rainfall (sum)") +
   theme_classic() + theme(text = element_text(size = 15))
 ```
@@ -1191,7 +1170,6 @@ cor.test(data$TEMP_BROOD, data$PRCP_BROOD)
 PCA of both variables indicates they are almost orthogonal:
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
@@ -1205,7 +1183,6 @@ summary(mypca)
 VIF calculation for both GLM models further confirms there's no danger of collinearity.
 
 ```{r}
-#| output: false
 #| warning: false
 #| code-overflow: wrap
 #| eval: true
