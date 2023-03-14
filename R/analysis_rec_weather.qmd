@@ -996,6 +996,92 @@ Not used in final results.
 # #   theme_classic()
 ```
 
+# Supplementary stuff - body size and LD
+
+```{r}
+bodysize <- data %>%
+  group_by(AREA, YEAR) %>%
+  summarise(tarsm_mean = mean(TARSM, na.rm = T),
+            tarsf_mean = mean(TARSF, na.rm = T),
+            wingm_mean = mean(WINGM, na.rm = T),
+            wingf_mean = mean(WINGF, na.rm = T),
+            ld_mean = mean(LD, na.rm = T)) %>%
+  filter((AREA == "OJ" | AREA == "FP" | AREA == "FA" | AREA == "FO" |
+            AREA == "FK" | AREA == "AN" | AREA == "BK" | AREA == "KT" |
+            AREA == "OL" | AREA == "RM" | AREA == "GR" | AREA == "BJ" |
+            AREA == "RO" | AREA == "RS" | AREA == "RN"))
+
+bodysize_y <- data %>%
+  filter((AREA == "OJ" | AREA == "FP" | AREA == "FA" | AREA == "FO" |
+          AREA == "FK" | AREA == "AN" | AREA == "BK" | AREA == "KT" |
+          AREA == "OL" | AREA == "RM" | AREA == "GR" | AREA == "BJ" |
+          AREA == "RO" | AREA == "RS" | AREA == "RN")) %>%
+  group_by(YEAR) %>%
+  summarise(tarsm_mean = mean(TARSM, na.rm = T),
+            tarsf_mean = mean(TARSF, na.rm = T),
+            wingm_mean = mean(WINGM, na.rm = T),
+            wingf_mean = mean(WINGF, na.rm = T),
+            ld_mean = mean(LD, na.rm = T))
+
+
+ggplot(data = bodysize, mapping = aes(x = YEAR, y = tarsf_mean)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ poly(x, 3), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 3), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = bodysize, mapping = aes(x = YEAR, y = wingf_mean)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ poly(x, 1), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = bodysize, mapping = aes(x = YEAR, y = tarsm_mean)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ poly(x, 3), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 3), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = bodysize, mapping = aes(x = YEAR, y = wingm_mean)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ poly(x, 1), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = bodysize, mapping = aes(x = YEAR, y = ld_mean)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ poly(x, 1), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+
+
+ggplot(data = bodysize_y, mapping = aes(x = YEAR, y = tarsf_mean)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 3), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = bodysize_y, mapping = aes(x = YEAR, y = wingf_mean)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 3), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = bodysize_y, mapping = aes(x = YEAR, y = tarsm_mean)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 3), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = bodysize_y, mapping = aes(x = YEAR, y = wingm_mean)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 3), colour = 'black', lwd = 1.5) +
+  theme_classic()
+
+ggplot(data = bodysize_y, mapping = aes(x = YEAR, y = ld_mean)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 3), colour = 'black', lwd = 1.5) +
+  theme_classic()
+```
+
 
 # The full story step-by-step
 
