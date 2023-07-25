@@ -42,6 +42,7 @@ library(glmmTMB)
 library(car)
 library(tidyverse)
 library(plot3D)
+library(ggpubr)
 
 nitt <- 1e6
 burnin <- floor(nitt * 0.1)
@@ -69,8 +70,12 @@ counter <- function(x, maxzeroes = 4) {
 ```{r}
 #| label: data_loading
 
-data <- read.table(here('data', 'CFlongAA_mod230313.csv'),
+# data <- read.table(here('data', 'CFlongAA_mod230313.csv'),
+#                    sep = ";", head = T, stringsAsFactors = T)
+
+data <- read.table(here('data', 'postprocess', 'bird_data_weather2.csv'),
                    sep = ";", head = T, stringsAsFactors = T)
+
 # summary(data)
 
 area_nboxes <- read.table(here('data', 'area_nboxes.csv'),
@@ -86,6 +91,13 @@ prcp_winter <- read.table(here('data', 'prcp_winter.csv'),
 data$obs <- as.factor(1:nrow(data))
 ```
 
+The below filter removes data from areas that were established later (2013). You can switch it on or off.
+
+```{r}
+data2 <- data %>% filter(AREA %in% c("OJ", "FP", "FO", "FK",
+"GR", "FA", "RO", "AN", "BJ", "TU", "BS"))
+```
+
 # Model data
 
 ## MCMCglmm
@@ -95,23 +107,24 @@ data$obs <- as.factor(1:nrow(data))
 #| code-overflow: wrap
 #| eval: false
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "MRING", "YEAR", "FLEDGE")]
-data_analysis <- na.omit(data_analysis)
-nrow(data_analysis)
-data_analysis$YEAR <- as.factor(data_analysis$YEAR)
-data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
-data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
-model1 <- MCMCglmm(FLEDGE ~ TEMP_BROOD * PRCP_BROOD,
-                   random = ~ FRING + YEAR,
-                   data = data_analysis, family = 'poisson',
-                   prior = list(R = list(V = 1, nu = 0.002),
-                                G = list(G1 = list(V = 1, nu = 0.002, alpha.mu = 0, alpha.V = 1e4),
-                                         G2 = list(V = 1, nu = 0.002, alpha.mu = 0, alpha.V = 1e4))),
-                   nitt = nitt, burnin = 0.1*nitt, thin = ceiling((0.9*nitt)/1000))
+# data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "MRING", "YEAR", "FLEDGE", "LD")]
+# data_analysis <- na.omit(data_analysis)
+# nrow(data_analysis)
+# data_analysis$YEAR <- as.factor(data_analysis$YEAR)
+# data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+# data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = F)
+# model1 <- MCMCglmm(FLEDGE ~ TEMP_BROOD * PRCP_BROOD,
+#                    random = ~ FRING + YEAR,
+#                    data = data_analysis, family = 'poisson',
+#                    prior = list(R = list(V = 1, nu = 0.002),
+#                                 G = list(G1 = list(V = 1, nu = 0.002, alpha.mu = 0, alpha.V = 1e4),
+#                                          G2 = list(V = 1, nu = 0.002, alpha.mu = 0, alpha.V = 1e4))),
+#                    nitt = nitt, burnin = 0.1*nitt, thin = ceiling((0.9*nitt)/1000))
 
-autocorr.plot(model1$Sol)
-autocorr.plot(model1$VCV)
-summary(model1)
+# autocorr.plot(model1$Sol)
+# autocorr.plot(model1$VCV)
+# summary(model1)
 ```
 
 ## GLM models
@@ -122,29 +135,51 @@ summary(model1)
 #| eval: true
 #| label: glms_main
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
-data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
-data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
-model2 <- glmer(FLEDGE ~ TEMP_BROOD * PRCP_BROOD + (1|FRING) + (1|YEAR) + (1|AREA) + (1|obs),
-                data = data_analysis, family = "poisson")
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
+
+# data_analysis <- data_analysis %>% group_by(YEAR) %>%
+# mutate(TEMP_BROOD_m = mean(TEMP_BROOD),
+#        PRCP_BROOD_m = mean(PRCP_BROOD),
+#        TEMP_BROOD_wsc = TEMP_BROOD - TEMP_BROOD_m,
+#        PRCP_BROOD_wsc = PRCP_BROOD - PRCP_BROOD_m)
+
+model2 <- glmer(FLEDGE ~ TEMP_BROOD2 * PRCP_BROOD2 + (1 | FRING) + (1 | YEAR) + (1 | AREA) + (1 | obs),
+    data = data_analysis, family = "poisson"
+)
+# model2 <- glmer(
+#     FLEDGE ~ TEMP_BROOD_m + PRCP_BROOD_m +
+#         TEMP_BROOD_wsc + PRCP_BROOD_wsc + (1 | FRING) + (1 | YEAR) + (1 | AREA) + (1 | obs),
+#     data = data_analysis, family = "poisson", control = glmerControl(optimizer = "Nelder_Mead")
+# )
+
 summary(model2)
 plot(model2)
 hist(resid(model2, type = "deviance"))
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs")]
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
-data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
-data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
-model3 <- glmer(NEWRECRUIT ~ TEMP_BROOD * PRCP_BROOD + (1|FRING) + (1|YEAR) + (1|AREA) + (1|obs),
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
+model3 <- glmer(NEWRECRUIT ~ TEMP_BROOD2 * PRCP_BROOD2 + (1|FRING) + (1|YEAR) + (1|AREA) + (1|obs),
                 data = data_analysis, family = "poisson")
 summary(model3)
 plot(model3)
 hist(resid(model3, type = "deviance"))
+
+model3_ <- glmer(NEWRECRUIT ~ TEMP_BROOD2 + PRCP_BROOD2 + (1|FRING) + (1|YEAR) + (1|AREA) + (1|obs),
+                data = data_analysis, family = "poisson")
+summary(model3_)
+plot(model3_)
+hist(resid(model3_, type = "deviance"))
 
 ```
 
@@ -159,20 +194,29 @@ Visualise both models. First for fledging success:
 #| fig-height: 8
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE")]
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
 data_analysis <- na.omit(data_analysis)
-data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
-data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+nrow(data_analysis)
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
+model2.1 <- glmmTMB(FLEDGE ~ TEMP_BROOD2 + PRCP_BROOD2 + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
+                    zi = ~ TEMP_BROOD2 * PRCP_BROOD2,
+                    data = data_analysis, family = "poisson")
+summary(model2.1)
+hist(residuals(model2.1))
 
 # set the x, y, and z variables
-x <- data_analysis$TEMP_BROOD
-y <- data_analysis$PRCP_BROOD
+x <- data_analysis$TEMP_BROOD2
+y <- data_analysis$PRCP_BROOD2
 z <- data_analysis$FLEDGE
-xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analysis$YEAR)
+xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analysis$YEAR, AREA = data_analysis$AREA)
 
 # Compute the linear regression 
 #fit <- glm(z ~ x * y, data = xyz)
-fit <- glmer(z ~ x * y + (1|FRING) + (1|YEAR),
+fit <- glmmTMB(z ~ x + y + (1|FRING) + (1|YEAR) + (1|AREA),
+             zi = ~ x * y,
              data = xyz, family = "poisson")
 
 # create a grid from the x and y values (min to max) and predict values for every point
@@ -181,6 +225,9 @@ grid.lines = 40
 x.pred <- seq(min(x), max(x), length.out = grid.lines)
 y.pred <- seq(min(y), max(y), length.out = grid.lines)
 xy <- expand.grid( x = x.pred, y = y.pred)
+xy$FRING <- NA
+xy$YEAR <- NA
+xy$AREA <- NA
 z.pred <- matrix(predict(fit, newdata = xy, type = "response", re.form = NA), 
                  nrow = grid.lines, ncol = grid.lines)
 
@@ -208,20 +255,20 @@ And for recruitment:
 #| fig-cap: "Recruitment vs. weather"
 #| fig-height: 8
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT")]
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "FRING", "YEAR", "NEWRECRUIT", "LD", "AREA")]
 data_analysis <- na.omit(data_analysis)
-data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
-data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
-
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
 # set the x, y, and z variables
-x <- data_analysis$TEMP_BROOD
-y <- data_analysis$PRCP_BROOD
+x <- data_analysis$TEMP_BROOD2
+y <- data_analysis$PRCP_BROOD2
 z <- data_analysis$NEWRECRUIT
-xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analysis$YEAR)
+xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analysis$YEAR, AREA = data_analysis$AREA)
 
 # Compute the linear regression 
 # fit <- glm(z ~ x * y, data = xyz)
-fit <- glmer(z ~ x * y + (1|FRING) + (1|YEAR),
+fit <- glmer(z ~ x * y + (1|FRING) + (1|YEAR) + (1|AREA),
              data = xyz, family = "poisson")
 
 # create a grid from the x and y values (min to max) and predict values for every point
@@ -256,67 +303,67 @@ Animated plot to make the pattern more apparent:
 #| label: animated_plot
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE")]
-data_analysis <- na.omit(data_analysis)
-data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
-data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+# data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE")]
+# data_analysis <- na.omit(data_analysis)
+# data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+# data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
 
-# set the x, y, and z variables
-x <- data_analysis$TEMP_BROOD
-y <- data_analysis$PRCP_BROOD
-z <- data_analysis$FLEDGE
-xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analysis$YEAR)
+# # set the x, y, and z variables
+# x <- data_analysis$TEMP_BROOD
+# y <- data_analysis$PRCP_BROOD
+# z <- data_analysis$FLEDGE
+# xyz <- data.frame(x=x, y=y, z=z, FRING = data_analysis$FRING, YEAR = data_analysis$YEAR)
 
-# Compute the linear regression 
-#fit <- glm(z ~ x * y, data = xyz)
-fit <- glmer(z ~ x * y + (1|FRING) + (1|YEAR),
-             data = xyz, family = "poisson")
+# # Compute the linear regression 
+# #fit <- glm(z ~ x * y, data = xyz)
+# fit <- glmer(z ~ x * y + (1|FRING) + (1|YEAR),
+#              data = xyz, family = "poisson")
 
-# create a grid from the x and y values (min to max) and predict values for every point
-# this will become the regression plane
-grid.lines = 40
-x.pred <- seq(min(x), max(x), length.out = grid.lines)
-y.pred <- seq(min(y), max(y), length.out = grid.lines)
-xy <- expand.grid( x = x.pred, y = y.pred)
-z.pred <- matrix(predict(fit, newdata = xy, type = "response", re.form = NA), 
-                 nrow = grid.lines, ncol = grid.lines)
+# # create a grid from the x and y values (min to max) and predict values for every point
+# # this will become the regression plane
+# grid.lines = 40
+# x.pred <- seq(min(x), max(x), length.out = grid.lines)
+# y.pred <- seq(min(y), max(y), length.out = grid.lines)
+# xy <- expand.grid( x = x.pred, y = y.pred)
+# z.pred <- matrix(predict(fit, newdata = xy, type = "response", re.form = NA), 
+#                  nrow = grid.lines, ncol = grid.lines)
 
-# create the fitted points for droplines to the surface
-fitpoints <- predict(fit, type = "response", re.form = NA)
+# # create the fitted points for droplines to the surface
+# fitpoints <- predict(fit, type = "response", re.form = NA)
 
-for (i in 1:180) {
-  # scatter plot with regression plane
-  png(filename = paste0("./animated/", "file_", counter(i), ".png"))
-  scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray15",
-            theta = i, phi = 30, bty="u",ticktype="detailed",
-            col.panel ="gray90", col.grid = "snow",
-            expand = 0.8, d = 1,scale = T,
-            xlab = "Temperature", ylab = "Precipitation", zlab = "No. of fledglings",  
-            surf = list(x = x.pred, y = y.pred, z = z.pred,  
-                        facets = TRUE, col=ramp.col (col = c("cyan","orchid","yellow","orange"), n = 100, alpha=0.7),
-                        fit = fitpoints,
-                        border="black"), alpha = 0.2, zlim = c(0,8))
-  dev.off()
-  cat("Plot "); cat(i); cat(" degrees done\n")
-}
+# for (i in 1:180) {
+#   # scatter plot with regression plane
+#   png(filename = paste0("./animated/", "file_", counter(i), ".png"))
+#   scatter3D(x, y, z, pch = 19, cex = 0.3, colvar = FALSE, col = "gray15",
+#             theta = i, phi = 30, bty="u",ticktype="detailed",
+#             col.panel ="gray90", col.grid = "snow",
+#             expand = 0.8, d = 1,scale = T,
+#             xlab = "Temperature", ylab = "Precipitation", zlab = "No. of fledglings",  
+#             surf = list(x = x.pred, y = y.pred, z = z.pred,  
+#                         facets = TRUE, col=ramp.col (col = c("cyan","orchid","yellow","orange"), n = 100, alpha=0.7),
+#                         fit = fitpoints,
+#                         border="black"), alpha = 0.2, zlim = c(0,8))
+#   dev.off()
+#   cat("Plot "); cat(i); cat(" degrees done\n")
+# }
 
-library(magick)
+# library(magick)
 
-imgs <- list.files("./animated", full.names = TRUE)
-img_list <- lapply(imgs, image_read)
+# imgs <- list.files("./animated", full.names = TRUE)
+# img_list <- lapply(imgs, image_read)
 
-## join the images together
-img_joined <- image_join(img_list)
+# ## join the images together
+# img_joined <- image_join(img_list)
 
-## animate at 2 frames per second
-img_animated <- image_animate(img_joined, fps = 25)
+# ## animate at 2 frames per second
+# img_animated <- image_animate(img_joined, fps = 25)
 
-## view animated image
-img_animated
+# ## view animated image
+# img_animated
 
-## save to disk
-image_write(image = img_animated,
-            path = "./R/plot.gif")
+# ## save to disk
+# image_write(image = img_animated,
+#             path = "./R/plot.gif")
 ```
 
 ![](plot.gif)
@@ -331,24 +378,26 @@ image_write(image = img_animated,
 #| label: glm_transformed
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
 model4 <- lmer(log(FLEDGE+1) ~ TEMP_BROOD * PRCP_BROOD + (1|FRING) + (1|YEAR) + (1|AREA),
                data = data_analysis)
 summary(model4)
 plot(model4)
 hist(resid(model4))
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
 model5 <- lmer(log(NEWRECRUIT+1) ~ TEMP_BROOD * PRCP_BROOD + (1|FRING) + (1|YEAR) + (1|AREA),
                data = data_analysis)
 summary(model5)
@@ -365,25 +414,27 @@ hist(resid(model5))
 #| label: glm_quadratic
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
 model6 <- lmer(log(FLEDGE+1) ~ poly(TEMP_BROOD,2) + poly(PRCP_BROOD,2) + (1|FRING) + (1|YEAR) + (1|AREA),
                data = data_analysis)
 summary(model6)
 plot(model6)
 hist(resid(model6))
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
-model7 <- lmer(log(NEWRECRUIT+1) ~ poly(TEMP_BROOD,2) + poly(PRCP_BROOD,2)+ (1|FRING) + (1|YEAR) + (1|AREA),
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
+model7 <- lmer(log(NEWRECRUIT+1) ~ poly(TEMP_BROOD,2) + poly(PRCP_BROOD,2) + (1|FRING) + (1|YEAR) + (1|AREA),
                data = data_analysis)
 summary(model7)
 plot(model7)
@@ -400,29 +451,30 @@ hist(resid(model7))
 #| label: glm_tmb
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA")]
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
-data_analysis$YEAR <- as.factor(data_analysis$YEAR)
-data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
-data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
-
-model2.1 <- glmmTMB(FLEDGE ~ TEMP_BROOD * PRCP_BROOD + (1|FRING) + (1|YEAR) + (1|AREA),
-                    zi = ~ TEMP_BROOD + PRCP_BROOD,
-                    data = data_analysis, family = "nbinom2")
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
+model2.1 <- glmmTMB(FLEDGE ~ TEMP_BROOD2 + PRCP_BROOD2 + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
+                    zi = ~ TEMP_BROOD2 * PRCP_BROOD2,
+                    data = data_analysis, family = "poisson")
 summary(model2.1)
 hist(residuals(model2.1))
 # much better residuals
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA")]
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
-data_analysis$YEAR <- as.factor(data_analysis$YEAR)
-data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
-data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
-model3.1 <- glmmTMB(NEWRECRUIT ~ TEMP_BROOD * PRCP_BROOD + (1|FRING) + (1|YEAR) + (1|AREA),
-                    zi = ~ TEMP_BROOD + PRCP_BROOD,
-                    data = data_analysis, family = "nbinom2")
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
+model3.1 <- glmmTMB(NEWRECRUIT ~ TEMP_BROOD2 + PRCP_BROOD2 + (1|FRING) + (1|YEAR2) + (1|AREA),
+                    zi = ~ TEMP_BROOD2 + PRCP_BROOD2,
+                    data = data_analysis, family = "poisson")
 summary(model3.1)
 hist(residuals(model3.1))
 # residuals not perfect (slight skew) but not bimodal, acceptable
@@ -508,13 +560,14 @@ Model for fledging success:
 #| eval: true
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "sum_prcp_jan_march")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "sum_prcp_jan_march", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
 data_analysis$sum_prcp_jan_march <- scale(data_analysis$sum_prcp_jan_march, center = T, scale = T)
+# data_analysis$LD <- scale(data_analysis$LD, center = T, scale = T)
 model7 <- glmer(FLEDGE ~ TEMP_BROOD * PRCP_BROOD + sum_prcp_jan_march + (1|FRING) + (1|YEAR),
                 data = data_analysis, family = "poisson")
 summary(model7)
@@ -530,13 +583,14 @@ Model for recruitment:
 #| eval: true
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "sum_prcp_jan_march")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "sum_prcp_jan_march", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
 data_analysis$sum_prcp_jan_march <- scale(data_analysis$sum_prcp_jan_march, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 model8 <- glmer(NEWRECRUIT ~ TEMP_BROOD * PRCP_BROOD + sum_prcp_jan_march + (1|FRING) + (1|YEAR),
                 data = data_analysis, family = "poisson")
 summary(model8)
@@ -554,26 +608,28 @@ Models with interaction of winter precipitation with temperature:
 #| eval: true
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "sum_prcp_jan_march")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "sum_prcp_jan_march", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
 data_analysis$sum_prcp_jan_march <- scale(data_analysis$sum_prcp_jan_march, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 model9 <- glmer(FLEDGE ~ PRCP_BROOD + TEMP_BROOD * sum_prcp_jan_march + (1|FRING) + (1|YEAR),
                 data = data_analysis, family = "poisson")
 summary(model9)
 plot(model9)
 hist(resid(model9, type = "deviance"))
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "sum_prcp_jan_march")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "sum_prcp_jan_march", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR <- as.factor(data_analysis$YEAR)
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
 data_analysis$sum_prcp_jan_march <- scale(data_analysis$sum_prcp_jan_march, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 model10 <- glmer(NEWRECRUIT ~ PRCP_BROOD + TEMP_BROOD * sum_prcp_jan_march + (1|FRING) + (1|YEAR),
                  data = data_analysis, family = "poisson")
 summary(model10)
@@ -626,13 +682,12 @@ Prepare data:
 #| eval: true
 
 
-demography <- data %>%
+demography <- data2 %>%
   group_by(AREA, YEAR) %>%
   summarise(fl_mean = mean(FLEDGE, na.rm = T),
             rec_mean = mean(NEWRECRUIT, na.rm = T),
             cs_mean = mean(CS, na.rm = T)) %>%
-  filter((AREA == "OJ" | AREA == "FP" | AREA == "FA")
-            & !is.nan(fl_mean) & !is.nan(rec_mean)) %>%
+  filter(!is.nan(fl_mean) & !is.nan(rec_mean)) %>%
   # print(n = 50) %>%
   left_join(cf_nbox_occup, by = c("AREA" = "Plot", "YEAR" = "year")) %>%
   mutate(fl_mean_n = lag(fl_mean),
@@ -641,17 +696,17 @@ demography <- data %>%
 
 ggplot(data = demography, mapping = aes(y = fl_mean, x = YEAR, col = AREA)) +
   geom_point() +
-  geom_smooth(method = 'lm', formula = y~poly(x, 3)) +
+  geom_smooth(method = 'lm', formula = y~poly(x, 3), se = F) +
   theme_classic()
 
 ggplot(data = demography, mapping = aes(y = rec_mean, x = YEAR, col = AREA)) +
   geom_point() +
-  geom_smooth(method = 'lm', formula = y~poly(x, 3)) +
+  geom_smooth(method = 'lm', formula = y~poly(x, 3), se = F) +
   theme_classic()
 
 ggplot(data = demography, mapping = aes(y = cs_mean, x = YEAR, col = AREA)) +
   geom_point() +
-  geom_smooth(method = 'lm', formula = y~poly(x, 3)) +
+  geom_smooth(method = 'lm', formula = y~poly(x, 3), se = F) +
   theme_classic()
 
 
@@ -736,30 +791,31 @@ Trends in average success:
 #| eval: true
 
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
-model14 <- glmer(FLEDGE ~ scale(YEAR) + (1|FRING) + (1|YEAR2),
+model14 <- glmer(FLEDGE ~ scale(YEAR) + (1|FRING) + (1|YEAR2) + (1 + scale(YEAR)|AREA) + (1|obs),
                  data = data_analysis, family = "poisson")
 summary(model14)
 plot(model14)
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT")]
+data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
-model15 <- glmer(NEWRECRUIT ~ scale(YEAR) + (1|YEAR2) + (1|FRING),
+model15 <- glmer(NEWRECRUIT ~ scale(YEAR) + (1|YEAR2) + (1|FRING) + (1+scale(YEAR)|AREA) + (1|obs),
                  data = data_analysis, family = "poisson")
 summary(model15)
 plot(model15)
 ```
 
-There are clear negative trends in local recruitment and fledging (the latter close to significant and negative) success across years (decline with time).
+There are negative trends in local recruitment and fledging (the former not significant but with negative trend) success across years (decline with time).
 
 ## Checking for temporal trend in clutch size
 
 Surprisingly clutch size seems to increase with years (as also seen above).
+[I would not put this result into the paper]
 
 ```{r}
 #| warning: false
@@ -834,21 +890,25 @@ cf_totals <- read.table(here("data", "TOTALnbplot_short.csv"),
 #| eval: true
 
 
-demography <- data %>%
-  group_by(AREA, YEAR) %>%
-  summarise(fl_mean = mean(FLEDGE, na.rm = T),
-            rec_mean = mean(NEWRECRUIT, na.rm = T),
-            cs_mean = mean(CS, na.rm = T)) %>%
-  filter((AREA == "OJ" | AREA == "FP" | AREA == "FA" | AREA == "FO" |
-            AREA == "FK" | AREA == "AN" | AREA == "BK" | AREA == "KT" |
-            AREA == "OL" | AREA == "RM" | AREA == "GR" | AREA == "BJ" |
-            AREA == "RO" | AREA == "RS" | AREA == "RN")
-            & !is.nan(fl_mean) & !is.nan(rec_mean)) %>%
-  # print(n = 50) %>%
-  left_join(cf_nbox_allplots, by = c("AREA" = "Plot", "YEAR" = "year")) %>%
-  mutate(fl_mean_n = lag(fl_mean),
-         rec_mean_n = lag(rec_mean),
-         cs_mean_n = lag(cs_mean))
+demography <- data2 %>%
+    group_by(AREA, YEAR) %>%
+    summarise(
+        fl_mean = mean(FLEDGE, na.rm = T),
+        rec_mean = mean(NEWRECRUIT, na.rm = T),
+        cs_mean = mean(CS, na.rm = T)
+    ) %>%
+    # filter((AREA == "OJ" | AREA == "FP" | AREA == "FA" | AREA == "FO" |
+    #     AREA == "FK" | AREA == "AN" | AREA == "BK" | AREA == "KT" |
+    #     AREA == "OL" | AREA == "RM" | AREA == "GR" | AREA == "BJ" |
+    #     AREA == "RO" | AREA == "RS" | AREA == "RN")) %>%
+    filter(!is.nan(fl_mean) & !is.nan(rec_mean)) %>%
+    # print(n = 50) %>%
+    left_join(cf_nbox_allplots, by = c("AREA" = "Plot", "YEAR" = "year")) %>%
+    mutate(
+        fl_mean_n = lag(fl_mean),
+        rec_mean_n = lag(rec_mean),
+        cs_mean_n = lag(cs_mean)
+    )
 
 demography$obs <- as.factor(1:nrow(demography))
 
@@ -870,6 +930,13 @@ ggplot(data = demography, mapping = aes(y = cs_mean, x = YEAR)) +
   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
   geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
   theme_classic()
+
+
+model14av <- lmer(log(fl_mean+1) ~ YEAR + (1|AREA) + (1|YEAR), data = demography)
+summary(model14av)
+
+model15av <- lmer(log(rec_mean+1) ~ YEAR + (1|AREA) + (1|YEAR), data = demography)
+summary(model15av)
 ```
 
 ```{r}
@@ -881,10 +948,17 @@ ggplot(data = demography, mapping = aes(y = cs_mean, x = YEAR)) +
 model17 <- glm(no_pairs ~ I(YEAR - 2019)*AREA, data = demography, family = "poisson")
 summary(model17)
 
-ggplot(data = cf_nbox_allplots, mapping = aes(y = no_pairs, x = year)) +
-  geom_point(aes(col = Plot)) +
-  geom_smooth(aes(col = Plot), method = 'lm', formula = y~poly(x, 2), se = FALSE) +
-  geom_smooth(method = 'lm', formula = y~poly(x,2), se = TRUE, col = "black", lwd = 2) +
+model17mixed <- glmer(no_pairs ~ 1 + scale(YEAR) + (1 + scale(YEAR)|AREA) + (1|obs),
+                      data = demography, family = "poisson")
+model17mixed_ <- glmer(no_pairs ~ 1 + scale(YEAR) + (1|AREA) + (1|obs),
+                      data = demography, family = "poisson")
+summary(model17mixed)
+anova(model17mixed, model17mixed_)
+
+ggplot(data = demography, mapping = aes(y = no_pairs, x = YEAR)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y~poly(x, 1), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y~poly(x,1), se = TRUE, col = "black", lwd = 2) +
   theme_classic()
 
 ggplot(data = cf_nbox_allplots %>%
@@ -896,10 +970,10 @@ ggplot(data = cf_nbox_allplots %>%
   geom_smooth(method = 'lm', formula = y~poly(x,2), se = TRUE, col = "black", lwd = 2) +
   theme_classic()
 
-model17pop <- glm(no_pairs ~ year,
-              data = cf_nbox_allplots %>%
-                        filter(Plot %in% full_plots & year >= 1986) %>%
-                        group_by(year) %>%
+model17pop <- glm(no_pairs ~ YEAR,
+              data = demography %>%
+                        filter(AREA %in% full_plots & YEAR >= 1986) %>%
+                        group_by(YEAR) %>%
                         summarise(no_pairs = sum(no_pairs, na.rm = TRUE)),
               family = "poisson")
 summary(model17pop)
@@ -918,7 +992,7 @@ ggplot() +
               group_by(year) %>%
               summarise(no_pairs = sum(no_pairs, na.rm = TRUE)),
               mapping = aes(y = no_pairs, x = year),
-              method = 'lm', formula = y~poly(x,2), se = TRUE, col = "black", lwd = 2) +
+              method = 'lm', formula = y~poly(x,1), se = TRUE, col = "black", lwd = 2) +
   theme_classic()
 
 ggplot(data = cf_nbox_allplots %>%
@@ -938,21 +1012,31 @@ ggplot(data = cf_nbox_allplots %>%
 
 
 model18 <- glm(no_pairs ~ AREA * fl_mean_n, data = demography, family = "poisson")
-summary(model15)
+summary(model18)
+
+model18mixed <- glmer(no_pairs ~ fl_mean_n + (1 + fl_mean_n|AREA), data = demography, family = "poisson")
+summary(model18mixed)
+model18mixed_ <- glmer(no_pairs ~ fl_mean_n + (1|AREA), data = demography, family = "poisson")
+anova(model18mixed, model18mixed_)
 
 model19 <- glm(no_pairs ~ AREA * rec_mean_n, data = demography, family = "poisson")
-summary(model16)
+summary(model19)
+
+model19mixed <- glmer(no_pairs ~ rec_mean_n + (1 + rec_mean_n|AREA), data = demography, family = "poisson")
+model19mixed_ <- glmer(no_pairs ~ rec_mean_n + (1|AREA), data = demography, family = "poisson")
+summary(model19mixed)
+anova(model19mixed, model19mixed_)
 
 ggplot(data = demography, mapping = aes(x = fl_mean_n, y = no_pairs, col = AREA)) +
   geom_point(aes(col = AREA)) +
   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
-  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'black', lwd = 1.5) +
   theme_classic()
 
 ggplot(data = demography, mapping = aes(x = rec_mean_n, y = no_pairs, col = AREA)) +
   geom_point(aes(col = AREA)) +
   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
-  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'black', lwd = 1.5) +
   theme_classic()
 
 
@@ -1089,6 +1173,9 @@ ggplot(data = bodysize_y, mapping = aes(x = YEAR, y = ld_mean)) +
   theme_classic()
 ```
 
+
+
+
 Cross-sectional impact of climate on next-year abundance.
 
 Temperature from previous season negatively impacts population numbers in most areas and on average.
@@ -1115,7 +1202,7 @@ ggplot(data = data_analysis, mapping = aes(x = t_mean_n, y = no_pairs)) +
   geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'black', lwd = 1.5) +
   theme_classic()
 
-model20s <- glm(no_pairs ~ AREA * t_mean_n, data = data_analysis, family = "poisson")
+model20s <- glmer(no_pairs ~ t_mean_n + (1|AREA), data = data_analysis, family = "poisson")
 summary(model20s)
 ```
 
@@ -1128,7 +1215,7 @@ ggplot(data = data_analysis, mapping = aes(x = p_mean_n, y = no_pairs)) +
   geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'black', lwd = 1.5) +
   theme_classic()
 
-model21s <- glm(no_pairs ~ AREA * p_mean_n, data = data_analysis, family = "poisson")
+model21s <- glmer(no_pairs ~ p_mean_n + (1|AREA), data = data_analysis, family = "poisson")
 summary(model21s)
 ```
 
@@ -1147,7 +1234,7 @@ ggplot(data = data_analysis, mapping = aes(x = CS, y = FLEDGE)) +
 model22s <- glmer(FLEDGE ~ CS + (1|FRING) + (1|AREA), data = data_analysis, family = "poisson")
 summary(model22s)
 
-data_analysis <- data[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "CS", "NEWRECRUIT", "AREA")]
+data_analysis <- data2[,c("TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "CS", "NEWRECRUIT", "AREA")]
 data_analysis <- na.omit(data_analysis)
 
 ggplot(data = data_analysis, mapping = aes(x = CS, y = NEWRECRUIT)) +
@@ -1219,26 +1306,16 @@ ggplot(data = bodysize_y, mapping = aes(x = YEAR, y = massm_mean)) +
   theme_classic()
 ```
 
+
+
+
+
+
 # The full story step-by-step
 
 ## Population on Gotland is declining
 
-In general population size (number of pairs) is decreasing (on average, and in most but a few plots). New plots (established in 2012 had a brief increase in population size by a drop in almost all cases).
-
-```{r}
-ggplot(data = cf_nbox_allplots, mapping = aes(y = no_pairs, x = year)) +
-  geom_point(aes(col = Plot)) +
-  geom_smooth(aes(col = Plot), method = 'lm', formula = y~poly(x, 1), se = FALSE) +
-  geom_smooth(method = 'lm', formula = y~poly(x,1), se = TRUE, col = "black", lwd = 2) +
-  labs(y = "Number of pairs", x = "Year") + 
-  theme_classic() + theme(text = element_text(size = 15))
-```
-
-```{r}
-summary(model17)
-```
-
-Globally, the population is also decreasing in numbers of breeding pairs (shown only plots with complete data between 1986 and 2019).
+In general population size (number of pairs) is decreasing - the below plot shows population totals that take into account areas monitored throughout the whole study period. Statistical model looking at summed abundance of breeding pairs in those longest-monitored plots confirms this negative trend.
 
 ```{r}
 summary(model17pop)
@@ -1261,29 +1338,66 @@ ggplot() +
   theme_classic() + theme(text = element_text(size = 15))
 ```
 
+Specific plots vary in the degree of population size change, a pattern confirmed by a random-regression model and a LRT-ratio test comparing a model with and without random slopes.
 
+[I would not show this plot in the current MS so maybe just limit to the model + summary of total population abundance in the longest monitored plots]
+
+```{r}
+ggplot(data = demography, mapping = aes(y = no_pairs, x = YEAR)) +
+  geom_point(aes(col = AREA)) +
+  geom_smooth(aes(col = AREA), method = 'lm', formula = y~poly(x, 1), se = FALSE) +
+  geom_smooth(method = 'lm', formula = y~poly(x,1), se = TRUE, col = "black", lwd = 2) +
+  labs(y = "Number of pairs", x = "Year") + 
+  theme_classic() + theme(text = element_text(size = 15))
+```
+
+```{r}
+summary(model17mixed)
+anova(model17mixed, model17mixed_)
+```
+
+Clearly, there is substantial variation between different study areas.
 
 ## Life history parameters are declining
 
 We see steady drops in average yearly numbers of fledglings and recruits:
 
 ```{r}
-summary(model14)
-ggplot(data = demography, mapping = aes(y = fl_mean, x = YEAR)) +
+summary(model14av)
+# ggplot(data = demography, mapping = aes(y = fl_mean, x = YEAR)) +
+#   geom_point(aes(col = AREA)) +
+#   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+#   geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'black', lwd = 1.5) +
+#   labs(x = "Year", y = "Average number of fledglings") +
+#   theme_classic() + theme(text = element_text(size = 15))
+
+summary(model15av)
+# ggplot(data = demography, mapping = aes(y = rec_mean, x = YEAR)) +
+#   geom_point(aes(col = AREA)) +
+#   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+#   geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+#   labs(x = "Year", y = "Average number of recruits") +
+#   theme_classic() + theme(text = element_text(size = 15))
+
+
+ggarrange(
+  ggplot(data = demography, mapping = aes(y = fl_mean, x = YEAR)) +
   geom_point(aes(col = AREA)) +
   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
   geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'black', lwd = 1.5) +
   labs(x = "Year", y = "Average number of fledglings") +
-  theme_classic() + theme(text = element_text(size = 15))
+  theme_classic() + theme(text = element_text(size = 15)),
 
-summary(model15)
-ggplot(data = demography, mapping = aes(y = rec_mean, x = YEAR)) +
+  ggplot(data = demography, mapping = aes(y = rec_mean, x = YEAR)) +
   geom_point(aes(col = AREA)) +
   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
   geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
   labs(x = "Year", y = "Average number of recruits") +
   theme_classic() + theme(text = element_text(size = 15))
+)
 ```
+
+The above plots show (for compatibility with overall population figure) only areas monitored throughout most of the longest study period in the population.
 
 Surprisingly - there's a significant increase in average clutch size:
 
@@ -1298,27 +1412,43 @@ ggplot(data = demography, mapping = aes(y = cs_mean, x = YEAR)) +
   theme_classic() + theme(text = element_text(size = 15))
 ```
 
+[I would not add this result to the current version of the MS]
+
 However, declines in numbers of fledglings and recruits are crucial - both of these are important parameters predicting following year's population size.
 
 ```{r}
-summary(model18)
+summary(model18mixed)
+anova(model18mixed, model18mixed_)
+# ggplot(data = demography, mapping = aes(x = fl_mean_n, y = no_pairs, col = AREA)) +
+#   geom_point(aes(col = AREA)) +
+#   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+#   geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'black', lwd = 1.5) +
+#   labs(x = "Previous year's average no. of fledglings", y = "Current year's no. of pairs") +
+#   theme_classic() + theme(text = element_text(size = 15))
 
-ggplot(data = demography, mapping = aes(x = fl_mean_n, y = no_pairs, col = AREA)) +
-  geom_point(aes(col = AREA)) +
-  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
-  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+summary(model19mixed)
+anova(model19mixed, model19mixed_)
+# ggplot(data = demography, mapping = aes(x = rec_mean_n, y = no_pairs, col = AREA)) +
+#   geom_point(aes(col = AREA)) +
+#   geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+#   geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'black', lwd = 1.5) +
+#   labs(x = "Previous year's average no. of recruits", y = "Current year's no. of pairs") +
+#   theme_classic() + theme(text = element_text(size = 15))
+
+ggarrange(ggplot(data = demography, mapping = aes(x = fl_mean_n, y = no_pairs)) +
+  geom_point(alpha = 0.4) +
+  # geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'brown2', lwd = 1.5) +
   labs(x = "Previous year's average no. of fledglings", y = "Current year's no. of pairs") +
-  theme_classic() + theme(text = element_text(size = 15))
-
-summary(model19)
-
-ggplot(data = demography, mapping = aes(x = rec_mean_n, y = no_pairs, col = AREA)) +
-  geom_point(aes(col = AREA)) +
-  geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
-  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), colour = 'black', lwd = 1.5) +
+  theme_classic() + theme(text = element_text(size = 15)),
+  
+  ggplot(data = demography, mapping = aes(x = rec_mean_n, y = no_pairs)) +
+  geom_point(alpha = 0.4) +
+  # geom_smooth(aes(col = AREA), method = 'lm', formula = y ~ x, se = FALSE) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 1), colour = 'brown2', lwd = 1.5) +
   labs(x = "Previous year's average no. of recruits", y = "Current year's no. of pairs") +
-  theme_classic() + theme(text = element_text(size = 15))
-  ```
+  theme_classic() + theme(text = element_text(size = 15)))
+```
 
 
 ## Recruitment and fledgind depend on weather
@@ -1348,6 +1478,8 @@ ggplot(data = data, mapping = aes(y = PRCP_BROOD, x = sum_prcp_jan_march)) +
   theme_classic() + theme(text = element_text(size = 15))
 ```
 
+[I would not add this result to the current MS]
+
 In our population, temperature is clearly rising:
 
 ```{r}
@@ -1356,7 +1488,7 @@ summary(lm(mean_t ~ YEAR,
 ggplot(data = data %>% group_by(YEAR) %>% summarise(mean_t = mean(TEMP_BROOD)),
        mapping = aes(y = mean_t, x = YEAR)) +
   geom_point() +
-  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+  geom_smooth(method = 'lm', formula = y~poly(x, 1)) +
   labs(x = "Year", y = "Breeding time temperature (mean)") +
   theme_classic() + theme(text = element_text(size = 15))
 ```
@@ -1369,9 +1501,24 @@ summary(lm(mean_p ~ YEAR,
 ggplot(data = data %>% group_by(YEAR) %>% summarise(mean_p = mean(PRCP_BROOD)),
        mapping = aes(y = mean_p, x = YEAR)) +
   geom_point() +
-  geom_smooth(method = 'lm', formula = y~poly(x, 2)) +
+  geom_smooth(method = 'lm', formula = y~poly(x, 1)) +
   labs(x = "Year", y = "Breeding time rainfall (sum)") +
   theme_classic() + theme(text = element_text(size = 15))
+
+ggarrange(ggplot(data = data %>% group_by(YEAR) %>% summarise(mean_t = mean(TEMP_BROOD)),
+       mapping = aes(y = mean_t, x = YEAR)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 1)) +
+  labs(x = "Year", y = "Breeding time temperature (mean)") +
+  theme_classic() + theme(text = element_text(size = 15)),
+
+  ggplot(data = data %>% group_by(YEAR) %>% summarise(mean_p = mean(PRCP_BROOD)),
+       mapping = aes(y = mean_p, x = YEAR)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y~poly(x, 1)) +
+  labs(x = "Year", y = "Breeding time rainfall (sum)") +
+  theme_classic() + theme(text = element_text(size = 15))
+)
 ```
 
 ## Weather parameters are not collinear
@@ -1386,7 +1533,7 @@ ggplot(data = data, mapping = aes(x = TEMP_BROOD, y = PRCP_BROOD)) +
   theme_classic() + theme(text = element_text(size = 15))
 
 cor.test(data$TEMP_BROOD, data$PRCP_BROOD)
-# There's weak correlation between temperature and precipitation
+x# There's weak correlation between temperature and precipitation
 ```
 
 PCA of both variables indicates they are almost orthogonal:
@@ -1412,4 +1559,40 @@ VIF calculation for both GLM models further confirms there's no danger of collin
 
 vif(model2)
 vif(model3)
+```
+
+## Additional weather parameters
+
+```{r}
+#| eval: false
+
+
+temp <- read.table("data/210805_temp.csv", sep = ";", header = T)
+
+temp_means <- temp %>% filter(day_number > 140 & day_number < 175) %>%
+  group_by(year) %>%
+  summarise(temp_mean = mean(temp, na.rm = T))
+
+ggplot(data = temp_means, aes(x = year, y = temp_mean)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    theme_classic() +
+    labs(x = "Year", y = "Average temperature") +
+    theme(text = element_text(size = 20))
+
+
+rain <- read.table("data/210805_rain.csv", sep = ";", header = T)
+
+rain_means <- rain %>% filter(day_number > 130 & day_number < 160) %>%
+  group_by(year) %>%
+  summarise(rain_mean = sum(rain, na.rm = T))
+
+ggplot(data = rain_means, aes(x = year, y = rain_mean)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    theme_classic() +
+    labs(x = "Year", y = "Precipitation sum") +
+    theme(text = element_text(size = 20))
+
+summary(lm(sqrt(rain_mean) ~ year, data = rain_means))
 ```

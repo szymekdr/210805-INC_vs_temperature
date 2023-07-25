@@ -1,0 +1,140 @@
+---
+title: "Gotland summaries"
+author: "Szymek Drobniak"
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-depth: 2
+    theme: simplex
+    embed-resources: true
+    code-fold: true
+    code-tools: false
+    number-sections: false
+crossref: 
+  fig-title: Figure     # (default is "Figure")
+  tbl-title: Table     # (default is "Table")
+  title-delim: —     # (default is ":")
+  fig-prefix: Fig.   # (default is "Figure")
+  tbl-prefix: Tab.    # (default is "Table")
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+#| echo: false
+#| output: false
+#| warning: false
+#| label: packages
+#| code-overflow: wrap
+
+
+library(ggplot2)
+library(MCMCglmm)
+library(here)
+library(lme4)
+library(lmerTest)
+library(glmmTMB)
+library(car)
+library(tidyverse)
+library(plot3D)
+library(ggpubr)
+
+nitt <- 1e6
+burnin <- floor(nitt * 0.1)
+thin <- floor((nitt - burnin)/1000)
+```
+
+```{r}
+#| echo: false
+counter <- function(x, maxzeroes = 4) {
+  if(floor(log10(x)) > maxzeroes) stop("Not enough zeroes in maxzeroes")
+  
+  return(paste0(paste(rep(0, maxzeroes - floor(log10(x))), collapse = ""), x))
+}
+```
+
+# Load data
+
+```{r}
+#| label: data_loading
+
+# data <- read.table(here('data', 'CFlongAA_mod230313.csv'),
+#                    sep = ";", head = T, stringsAsFactors = T)
+
+data <- read.table(here('data', 'postprocess', 'bird_data_weather2.csv'),
+                   sep = ";", head = T, stringsAsFactors = T)
+
+# summary(data)
+
+area_nboxes <- read.table(here('data', 'area_nboxes.csv'),
+                          sep = ";", head = T, stringsAsFactors = T)
+cf_nbox_occup <- read.table(here('data', 'cf_nbox_occup.csv'),
+                            sep = ";", head = T, stringsAsFactors = T)
+prcp_winter <- read.table(here('data', 'prcp_winter.csv'),
+                          sep = ";", head = T, stringsAsFactors = T)
+
+
+# adding observation-level random term
+
+data$obs <- as.factor(1:nrow(data))
+```
+
+# Calculate summaries
+
+```{r}
+#| warning: false
+
+
+data_summary <- data %>%
+    group_by(YEAR) %>%
+    summarise(
+        CS_mean = mean(CS), CS_min = min(CS), CS_max = max(CS),
+        LD_mean = mean(LD), LD_min = min(LD), LD_max = max(LD),
+        HD_mean = mean(HD, na.rm = T), HD_min = min(HD, na.rm = T), HD_max = max(HD, na.rm = T), N = n()
+    ) %>% filter (YEAR != 1980)
+```
+
+# Plot summaries
+
+## Laying date
+
+```{r}
+ggplot(data_summary) +
+    geom_segment(aes(x = YEAR, xend = YEAR, y = LD_min, yend = LD_max), color = "pink") +
+    geom_point(aes(x = YEAR, y = LD_mean), size = 4) +
+    geom_point(aes(x = YEAR, y = LD_min), color = "red") +
+    geom_point(aes(x = YEAR, y = LD_max), color = "red") +
+    theme_bw() +
+    labs(y = "Laying date [April days]") +
+    theme(text = element_text(size = 15))
+```
+
+
+## Clutch size
+
+```{r}
+ggplot(data_summary) +
+    geom_segment(aes(x = YEAR, xend = YEAR, y = CS_min, yend = CS_max), color = "pink") +
+    geom_point(aes(x = YEAR, y = CS_mean), size = 4) +
+    geom_point(aes(x = YEAR, y = CS_min), color = "red") +
+    geom_point(aes(x = YEAR, y = CS_max), color = "red") +
+    theme_bw() +
+    labs(y = "Clutch size") +
+    theme(text = element_text(size = 15))
+```
+
+## Hatching date
+
+```{r}
+ggplot(data_summary) +
+    geom_segment(aes(x = YEAR, xend = YEAR, y = HD_min, yend = HD_max), color = "pink") +
+    geom_point(aes(x = YEAR, y = HD_mean), size = 4) +
+    geom_point(aes(x = YEAR, y = HD_min), color = "red") +
+    geom_point(aes(x = YEAR, y = HD_max), color = "red") +
+    theme_bw() +
+    labs(y = "Hatching date [April days]") +
+    theme(text = element_text(size = 15))
+```

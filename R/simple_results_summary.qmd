@@ -1,0 +1,271 @@
+---
+title: "Simple analysis - two types of windows"
+author: "Szymek Drobniak"
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-depth: 2
+    theme: simplex
+    embed-resources: true
+    code-fold: true
+    code-tools: true
+    number-sections: true
+    max-width: 2000px
+crossref: 
+  fig-title: Figure     # (default is "Figure")
+  tbl-title: Table     # (default is "Table")
+  title-delim: —     # (default is ":")
+  fig-prefix: Fig.   # (default is "Figure")
+  tbl-prefix: Tab.    # (default is "Table")
+editor_options: 
+  chunk_output_type: console
+execute:
+  cache: true
+---
+
+```{r}
+#| output: false
+#| warning: false
+#| label: packages
+#| code-overflow: wrap
+
+
+library(ggplot2)
+library(MCMCglmm)
+library(here)
+library(lme4)
+library(lmerTest)
+library(glmmTMB)
+library(car)
+library(tidyverse)
+library(plot3D)
+library(ggpubr)
+library(emmeans)
+library(sjPlot)
+
+counter <- function(x, maxzeroes = 4) {
+  if(floor(log10(x)) > maxzeroes) stop("Not enough zeroes in maxzeroes")
+  
+  return(paste0(paste(rep(0, maxzeroes - floor(log10(x))), collapse = ""), x))
+}
+```
+
+## Loading data
+```{r}
+data <- read.table(here("data", "postprocess", "bird_data_weather2.csv"),
+    sep = ";", head = T, stringsAsFactors = T
+)
+
+data$obs <- as.factor(1:nrow(data))
+```
+
+## Models for nestling rearing window
+
+```{r}
+#| code-fold: show
+#| 
+
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
+data_analysis <- na.omit(data_analysis)
+data_analysis <- gdata::drop.levels(data_analysis)
+nrow(data_analysis)
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+
+model1 <- glmmTMB(FLEDGE ~ TEMP_BROOD2 + PRCP_BROOD2 + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
+                    zi = ~ TEMP_BROOD2 * PRCP_BROOD2,
+                    data = data_analysis, family = "poisson")
+# summary(model1)
+
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs")]
+data_analysis <- na.omit(data_analysis)
+nrow(data_analysis)
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+
+model2 <- glmmTMB(NEWRECRUIT ~ TEMP_BROOD2 + PRCP_BROOD2 + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
+                    zi = ~ TEMP_BROOD2 + PRCP_BROOD2,
+                    data = data_analysis, family = "poisson")
+# summary(model2)
+```
+
+```{r}
+#| column: page
+
+tab_model(model1, model2,
+    show.re.var = F, show.ngroups = F, show.icc = F,
+    show.r2 = F, string.est = "Estimate",
+    CSS = list(
+    css.table = 'margin: auto;'
+  )
+)
+
+```
+
+## Models for incubation window
+
+```{r}
+#| code-fold: show
+
+
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
+data_analysis <- na.omit(data_analysis)
+nrow(data_analysis)
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+
+model3 <- glmmTMB(FLEDGE ~ TEMP_BROOD * PRCP_BROOD + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
+                    zi = ~ TEMP_BROOD * PRCP_BROOD,
+                    data = data_analysis, family = "poisson")
+#summary(model3)
+
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs")]
+data_analysis <- na.omit(data_analysis)
+nrow(data_analysis)
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+
+model4 <- glmmTMB(NEWRECRUIT ~ TEMP_BROOD + PRCP_BROOD + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
+                    zi = ~ TEMP_BROOD + PRCP_BROOD,
+                    data = data_analysis, family = "poisson")
+```
+
+```{r}
+#| column: page
+
+
+#summary(model4)
+tab_model(model3, model4,
+    show.re.var = F, show.ngroups = F, show.icc = F,
+    show.r2 = F, string.est = "Estimate",
+    CSS = list(
+    css.table = 'margin: auto;'
+  )
+)
+```
+
+## Plots
+
+Plots for fledglings.
+
+```{r}
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+
+mdata1.1 <- get_model_data(model1, type = "pred", terms = "TEMP_BROOD2")
+
+ggplot(data = data_analysis, aes(x = TEMP_BROOD2)) +
+    geom_point(aes(y = FLEDGE), alpha = 0.1, colour = "gray25") +
+    geom_line(data = mdata1.1, aes(x = x, y = predicted), color = "red", linewidth = 1.2) +
+    geom_ribbon(data = mdata1.1, aes(x = x, ymin = conf.low, ymax = conf.high), fill = "darkred", alpha = 0.15) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+    labs(x = "Temperature (standardized) - rearing", y = "Fledglings")
+
+mdata1.2 <- get_model_data(model1, type = "pred", terms = "PRCP_BROOD2")
+
+ggplot(data = data_analysis, aes(x = PRCP_BROOD2)) +
+    geom_point(aes(y = FLEDGE), alpha = 0.1, colour = "gray25") +
+    geom_line(data = mdata1.2, aes(x = x, y = predicted), color = "blue", linewidth = 1.2) +
+    geom_ribbon(data = mdata1.2, aes(x = x, ymin = conf.low, ymax = conf.high), fill = "darkblue", alpha = 0.15) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+    labs(x = "Precipitation (standardized) - rearing", y = "Fledglings")
+
+
+
+mdata3.1 <- get_model_data(model3, type = "pred", terms = c("TEMP_BROOD", "PRCP_BROOD [-1.3, 5.5]"))
+
+ggplot(data = data_analysis, aes(x = TEMP_BROOD)) +
+    geom_point(aes(y = FLEDGE), alpha = 0.1, colour = "gray25") +
+    geom_line(data = mdata3.1, aes(x = x, y = predicted, colour = group), linewidth = 1.2) +
+    geom_ribbon(data = mdata3.1, aes(x = x, ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.15) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+    scale_colour_discrete(name = "Rainfall", labels = c("Low", "High")) +
+    scale_fill_discrete(name = "Rainfall", labels = c("Low", "High")) +
+    labs(x = "Temperature (standardized) - incubation", y = "Fledglings")
+
+mdata3.2 <- get_model_data(model3, type = "pred", terms = c("PRCP_BROOD", "TEMP_BROOD [-3.3, 2.9]"))
+
+ggplot(data = data_analysis, aes(x = PRCP_BROOD)) +
+    geom_point(aes(y = FLEDGE), alpha = 0.1, colour = "gray25") +
+    geom_line(data = mdata3.2, aes(x = x, y = predicted, colour = group), linewidth = 1.2) +
+    geom_ribbon(data = mdata3.2, aes(x = x, ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.15) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+    scale_colour_discrete(name = "Temperature", labels = c("Low", "High")) +
+    scale_fill_discrete(name = "Temperature", labels = c("Low", "High")) +
+    labs(x = "Precipitation (standardized) - incubation", y = "Fledglings")
+```
+
+Plots for recruits.
+
+```{r}
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs")]
+data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
+data_analysis$TEMP_BROOD2 <- scale(data_analysis$TEMP_BROOD2, center = T, scale = T)
+data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale = T)
+data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
+data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
+
+mdata2.1 <- get_model_data(model2, type = "pred", terms = "TEMP_BROOD2")
+
+ggplot(data = data_analysis, aes(x = TEMP_BROOD2)) +
+    geom_point(aes(y = NEWRECRUIT), alpha = 0.1, colour = "gray25") +
+    geom_line(data = mdata2.1, aes(x = x, y = predicted), color = "red", linewidth = 1.2) +
+    geom_ribbon(data = mdata2.1, aes(x = x, ymin = conf.low, ymax = conf.high), fill = "darkred", alpha = 0.15) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+    labs(x = "Temperature (standardized) - rearing", y = "Recruits")
+
+# mdata1.2 <- get_model_data(model1, type = "pred", terms = "PRCP_BROOD2")
+
+# ggplot(data = data_analysis, aes(x = PRCP_BROOD2)) +
+#     geom_point(aes(y = FLEDGE), alpha = 0.1, colour = "gray25") +
+#     geom_line(data = mdata1.2, aes(x = x, y = predicted), color = "blue", linewidth = 1.2) +
+#     geom_ribbon(data = mdata1.2, aes(x = x, ymin = conf.low, ymax = conf.high), fill = "darkblue", alpha = 0.15) +
+#     theme_bw() +
+#     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+#     labs(x = "Precipitation (standardized) - rearing", y = "Fledglings")
+
+
+
+mdata4.1 <- get_model_data(model4, type = "pred", terms = c("TEMP_BROOD"))
+
+ggplot(data = data_analysis, aes(x = TEMP_BROOD)) +
+    geom_point(aes(y = NEWRECRUIT), alpha = 0.1, colour = "gray25") +
+    geom_line(data = mdata4.1, aes(x = x, y = predicted), colour = "red", linewidth = 1.2) +
+    geom_ribbon(data = mdata4.1, aes(x = x, ymin = conf.low, ymax = conf.high), fill = "darkred", alpha = 0.15) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+    labs(x = "Temperature (standardized) - incubation", y = "Recruits")
+
+# mdata3.2 <- get_model_data(model3, type = "pred", terms = c("PRCP_BROOD", "TEMP_BROOD [-3.3, 2.9]"))
+
+# ggplot(data = data_analysis, aes(x = PRCP_BROOD)) +
+#     geom_point(aes(y = FLEDGE), alpha = 0.1, colour = "gray25") +
+#     geom_line(data = mdata3.2, aes(x = x, y = predicted, colour = group), linewidth = 1.2) +
+#     geom_ribbon(data = mdata3.2, aes(x = x, ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.15) +
+#     theme_bw() +
+#     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+#     labs(x = "Precipitation (standardized) - incubation", y = "Fledglings")
+```
