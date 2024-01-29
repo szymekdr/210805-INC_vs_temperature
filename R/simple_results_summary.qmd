@@ -67,7 +67,7 @@ data$obs <- as.factor(1:nrow(data))
 #| code-fold: show
 #| 
 
-data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "obs")]
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "FLEDGE", "AREA", "obs", "LD")]
 data_analysis <- na.omit(data_analysis)
 data_analysis <- gdata::drop.levels(data_analysis)
 nrow(data_analysis)
@@ -77,12 +77,12 @@ data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale 
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
 
-model1 <- glmmTMB(FLEDGE ~ TEMP_BROOD2 + PRCP_BROOD2 + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
+model1 <- glmmTMB(FLEDGE ~ TEMP_BROOD2 + PRCP_BROOD2 + LD + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
                     zi = ~ TEMP_BROOD2 * PRCP_BROOD2,
                     data = data_analysis, family = "poisson")
-# summary(model1)
+summary(model1)
 
-data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs")]
+data_analysis <- data[,c("TEMP_BROOD2", "PRCP_BROOD2", "TEMP_BROOD", "PRCP_BROOD", "FRING", "YEAR", "NEWRECRUIT", "AREA", "obs", "LD")]
 data_analysis <- na.omit(data_analysis)
 nrow(data_analysis)
 data_analysis$YEAR2 <- as.factor(data_analysis$YEAR)
@@ -91,10 +91,10 @@ data_analysis$PRCP_BROOD2 <- scale(data_analysis$PRCP_BROOD2, center = T, scale 
 data_analysis$TEMP_BROOD <- scale(data_analysis$TEMP_BROOD, center = T, scale = T)
 data_analysis$PRCP_BROOD <- scale(data_analysis$PRCP_BROOD, center = T, scale = T)
 
-model2 <- glmmTMB(NEWRECRUIT ~ TEMP_BROOD2 + PRCP_BROOD2 + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
+model2 <- glmmTMB(NEWRECRUIT ~ TEMP_BROOD2 * PRCP_BROOD2 + LD + (1|FRING) + (1|YEAR2) + (1|AREA) + (1|obs),
                     zi = ~ TEMP_BROOD2 + PRCP_BROOD2,
                     data = data_analysis, family = "poisson")
-# summary(model2)
+summary(model2)
 ```
 
 ```{r}
